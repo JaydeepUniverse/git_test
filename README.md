@@ -1,3 +1,5 @@
+https://us06web.zoom.us/j/83291410111?pwd=8zxdP6IjY7xgUzzgenFMZzWYKC4V6P.1
+
 Excellent—you're thinking exactly like a DevSecOps architect. Integrating **JFrog Xray scanning** into your **GitHub Actions** workflow is the right way to ensure that vulnerabilities are caught before deployment, and that your pipeline becomes a *single source of truth* for both build and security verification.
 
 Let’s go step-by-step through your two proposed options, analyze them, pick the best practice, and then I’ll give you the workflow YAML with prerequisites.
