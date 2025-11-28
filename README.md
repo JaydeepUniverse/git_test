@@ -1,141 +1,252 @@
-To design the DevSecOps monitoring solution for GitHub Actions and provide insights like DORA metrics, pipeline trends, deployment details, and usage of shared workflow templates, let's break down the approach into steps. This solution will allow for tracking, scaling, and meeting industry best practices. I'll also highlight infrastructure and scaling considerations.
+To provide you with a working Proof of Concept (POC) for the complete DevSecOps monitoring solution with GitHub Actions, I'll walk through each step with examples. This will cover:
 
-### Key Requirements:
+1. **GitHub Action Template**
+2. **App Repo Workflow**
+3. **GitHub Runner Configuration**
+4. **Database Configuration for Metrics**
+5. **API Integration**
+6. **Monitoring Dashboard Configuration**
 
-* **DORA Metrics Dashboard**: Deployment Frequency, Lead Time for Changes, Change Failure Rate, Time to Restore Service.
-* **Pipeline Monitoring**: Deployment trends by technology, platform, environment, CI/CD pipeline time, and stage usage.
-* **Centralized GitHub Action Templates**: Tracking repos using specific templates and identifying the usage of optional pipeline stages.
+Each example will have code and steps for you to deploy and demonstrate the solution. I will walk through the implementation to ensure everything is self-contained for a working POC.
 
-### Solution Breakdown:
+### 1. **GitHub Action Template (Centralized)**
 
-#### 1. **GitHub Actions API and Required Data Collection**
+This is the centralized GitHub Actions template stored in a GitHub organization that other repos will use.
 
-To achieve the monitoring solution, you'll leverage the following GitHub APIs:
+```yaml
+# .github/workflows/ci-template.yml
+name: CI Template
 
-* **GitHub Actions API**:
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
-  * **List Workflow Runs**: `GET /repos/{owner}/{repo}/actions/runs` — Fetches details about workflow runs for repositories. This will be the source for calculating pipeline times, deployment trends, and DORA metrics.
-  * **Workflow Usage**: `GET /repos/{owner}/{repo}/actions/workflows` — Provides data on workflows defined in a repo and their statuses.
-  * **Check Runs**: `GET /repos/{owner}/{repo}/check-runs` — Helps track CI/CD stages and determine success/failure.
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
 
-* **GitHub GraphQL API**:
+      - name: Set up JDK 11
+        uses: actions/setup-java@v2
+        with:
+          java-version: '11'
+      
+      - name: Build
+        run: ./gradlew build
 
-  * GraphQL queries provide more detailed insights and are more flexible for extracting aggregated data. You can query for specific events, logs, and metrics related to workflows, deployments, and stages.
+      - name: Unit Test
+        run: ./gradlew test
 
-* **Deployment API**:
+      - name: SonarQube Scan
+        uses: sonarsource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      
+      - name: JFrog Upload
+        run: jfrog rt upload "build/libs/*" "my-repo/"
 
-  * **Deployment Status**: `GET /repos/{owner}/{repo}/deployments/{deployment_id}/statuses` — Allows fetching deployment status, environment, and platform (AWS, Azure, OpenShift).
+      - name: Optional - JFrog X-Ray
+        if: ${{ secrets.JFROG_XRAY == 'true' }}
+        run: jfrog rt xr "my-repo/*"  # Run optional X-Ray scan
 
-#### Data Points Needed:
-
-* **Deployment Trend by Technology**: You can track the language or framework being used by extracting details from the `workflow.yml` and matching it with language tags in the repo.
-* **Deployment by Platform**: By extracting deployment environments from deployment logs or workflow files.
-* **CI/CD Pipeline Times**: From the workflow runs and check runs, you can calculate the time spent in each stage (e.g., build, test, deploy).
-* **DORA Metrics**: You will need to calculate metrics based on workflow run frequency, lead time (time from commit to deployment), failure rates, and restoration times (e.g., time to fix failed deployments).
-
-#### 2. **Stages to Include in the GitHub Actions Template**
-
-Include these stages in your templates:
-
-* **Mandatory Stages**:
-
-  * Checkout
-  * Build
-  * Unit Tests
-  * SonarQube analysis
-  * JFrog (Artifactory) integration
-* **Optional Stages**:
-
-  * JFrog X-Ray scanning
-  * Deployment to various environments (Azure, AWS, OpenShift)
-
-For each stage, add metadata and tracking parameters to record:
-
-* **Stage success/failure**: Use the `set-output` command in GitHub Actions to capture status for each step and mark it as optional or mandatory.
-* **Duration**: Capture timestamps at the beginning and end of each stage to measure CI/CD pipeline time.
-
-#### 3. **Tracking Repo Usage and Stage Usage**
-
-* **Template Usage**: Add a custom step in the template to log which repos and organizations are using your centralized templates. This can be done by logging each template run to a central database or API, including repo name and organization.
-* **Optional Stages Usage**: Track which stages are being used in each repo by querying the workflow definitions via the GitHub API, and flag if the optional stages (like JFrog X-Ray) are present or not.
-
-#### 4. **Building the Monitoring Dashboard**
-
-* **Metrics to Display**:
-
-  * **DORA Metrics**: Deployment Frequency, Lead Time, Change Failure Rate, Time to Restore Service.
-  * **Deployment Trend by Technology**: Group by language or framework.
-  * **Deployment Trend by Platform**: Group by deployment platforms (Azure, AWS, OpenShift).
-  * **Pipeline Time Metrics**: Average CI/CD pipeline times.
-  * **Stage Usage**: Repo and stage usage (which repos are using which stages).
-* **Technology Stack for Dashboard**:
-
-  * **Data Source**: Collect data from GitHub using GitHub Actions API, custom logging in workflows, and optional integrations with tools like SonarQube, JFrog, etc.
-  * **Storage**: Use a time-series database like **InfluxDB** or a relational database (e.g., **PostgreSQL**) to store metrics and pipeline logs.
-  * **Visualization**: For scalable and flexible dashboards:
-
-    * **Power BI**: Connect it to your database (InfluxDB/PostgreSQL) using APIs or direct database connectors. Power BI can handle detailed, customizable dashboards for DORA metrics, deployment trends, and pipeline performance.
-    * **Grafana**: For real-time monitoring and visualization. Grafana integrates with InfluxDB and can be used for advanced alerting.
-    * **GitHub Dashboard**: A custom GitHub dashboard could be developed using GitHub's own **GitHub Apps** and **GitHub API** for tracking template usage and pipeline metrics.
-
-#### Infrastructure Requirements:
-
-* **GitHub Runners**:
-
-  * You will need dedicated runners for CI/CD pipeline execution. Consider self-hosted runners if you want more control over the infrastructure, especially if you have many repositories or high-volume pipelines.
-  * Use autoscaling runners in a cloud environment (AWS EC2 or Azure VMs) if scaling is required.
-* **Scalability Considerations**:
-
-  * **Database Scaling**: Use horizontally scalable databases (e.g., InfluxDB or PostgreSQL clusters).
-  * **Caching**: To reduce API calls and improve performance, consider caching GitHub Actions data (e.g., workflow run details) and API responses.
-  * **Parallel Processing**: For large-scale data aggregation (especially DORA metrics), consider parallelizing the data collection process to avoid slowdowns.
-
-#### 5. **High-Level Architecture**
-
-* **GitHub Actions Workflows** (Centralized Templates)
-
-  * Collects data about workflow stages, runs, and failures.
-  * Logs deployment status (platform, environment).
-* **GitHub API / GraphQL**: Queries GitHub data (workflow runs, check runs, deployments).
-* **Metrics Database** (e.g., InfluxDB/PostgreSQL): Stores pipeline metrics, deployment data, and stage usage.
-* **Monitoring Dashboard** (Power BI/Grafana):
-
-  * Displays DORA metrics.
-  * Tracks deployment trends (platform, environment, tech stack).
-  * Monitors pipeline performance (time, success rate).
-  * Tracks repo/template usage and optional stage adoption.
-* **Optional Integrations** (e.g., SonarQube, JFrog, etc.): For extended metrics and stage tracking.
-
-#### 6. **High-Level Plan**
-
-1. **Define Metrics**: Determine key metrics (DORA, deployment trends, pipeline time).
-2. **Design GitHub Actions Templates**: Create templates with mandatory and optional stages, including logging for monitoring purposes.
-3. **Set up Data Collection**: Implement GitHub Actions API queries to collect data about runs, deployments, and workflow definitions.
-4. **Design Data Storage**: Set up a scalable storage solution for the metrics (e.g., InfluxDB/PostgreSQL).
-5. **Develop Monitoring Dashboards**: Create a dashboard using Power BI or Grafana, connecting to your data source.
-6. **Integrate with Third-Party Tools**: If needed, integrate tools like SonarQube, JFrog for extended metrics.
-7. **Infrastructure Setup**: Set up self-hosted GitHub runners and scalable database infrastructure.
-8. **Testing and Scaling**: Test with a small set of repositories and scale based on the number of organizations using the templates.
-
-#### High-Level Diagram:
+      - name: Deployment
+        if: ${{ secrets.DEPLOYMENT == 'true' }}
+        run: ./deploy.sh  # Customize deployment step
 
 ```
-       +------------------+       +----------------------------+
-       | GitHub Actions   |       |  Monitoring Dashboard      |
-       | (Centralized)     |-----> | (Power BI / Grafana)       |
-       +------------------+       +----------------------------+
-               |                              |
-               v                              v
-       +---------------------+         +----------------------+
-       | GitHub API (GraphQL)|         | Metrics Database     |
-       | / REST APIs         |         | (InfluxDB/PostgreSQL) |
-       +---------------------+         +----------------------+
-               |
-               v
-       +----------------------+
-       | Optional Integrations|
-       | (SonarQube, JFrog)   |
-       +----------------------+
+
+### Key Details:
+
+* **Mandatory stages**: Checkout, Build, Unit Test, SonarQube, JFrog Upload.
+* **Optional stages**: JFrog X-Ray, Deployment (conditionally included).
+* You can control optional stages with `secrets` in GitHub.
+
+### 2. **App Repo Workflow (Using Template)**
+
+In each app repository, the workflow will reference this centralized template.
+
+```yaml
+# .github/workflows/app-repo-workflow.yml
+name: App Workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    uses: my-org/ci-template/.github/workflows/ci-template.yml@main  # Use the centralized template
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      JFROG_XRAY: ${{ secrets.JFROG_XRAY }}
+      DEPLOYMENT: ${{ secrets.DEPLOYMENT }}
 ```
 
-This approach will provide you with a scalable, flexible solution to monitor GitHub Actions pipelines and track DORA metrics across multiple organizations using centralized workflow templates.
+### Key Details:
+
+* The app repo simply references the centralized template, and environment-specific secrets (like `SONAR_TOKEN`) are passed into it.
+
+### 3. **GitHub Runner Configuration**
+
+Self-hosted runners can be used for greater control over resources and scaling.
+
+1. **Create a runner configuration:**
+
+   On your runner machine (e.g., an EC2 instance, Azure VM, or local server), run the following commands:
+
+```bash
+# 1. Download GitHub Runner
+mkdir actions-runner && cd actions-runner
+curl -o actions-runner-linux-x64-2.278.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.278.0/actions-runner-linux-x64-2.278.0.tar.gz
+tar xzf ./actions-runner-linux-x64-2.278.0.tar.gz
+
+# 2. Configure Runner
+./config.sh --url https://github.com/your-org --token YOUR_TOKEN
+
+# 3. Start the runner
+./run.sh
+```
+
+2. **Configure the GitHub Runner on the Repo:**
+
+   * In your GitHub repo, go to **Settings** > **Actions** > **Runners**.
+   * Add a self-hosted runner and obtain the `YOUR_TOKEN` from this page.
+
+The runner will automatically register with GitHub and start executing workflows when triggered.
+
+### 4. **Database Configuration for Metrics**
+
+You can store metrics in **InfluxDB** (time-series database) or **PostgreSQL** (relational database). I'll show you how to set up **PostgreSQL** and integrate it into the solution.
+
+1. **Create PostgreSQL Database**:
+
+```bash
+# Create a PostgreSQL database and user
+sudo -u postgres psql
+CREATE DATABASE github_metrics;
+CREATE USER github_user WITH ENCRYPTED PASSWORD 'yourpassword';
+GRANT ALL PRIVILEGES ON DATABASE github_metrics TO github_user;
+```
+
+2. **Connect to PostgreSQL**:
+   Create a table to store pipeline metrics (e.g., DORA metrics, pipeline times).
+
+```sql
+-- Create a table for storing pipeline metrics
+CREATE TABLE pipeline_metrics (
+    id SERIAL PRIMARY KEY,
+    repo_name TEXT,
+    workflow_name TEXT,
+    deployment_frequency INT,
+    lead_time INT,
+    change_failure_rate FLOAT,
+    restore_time INT,
+    pipeline_duration INT,
+    deployment_platform TEXT,
+    stage_name TEXT,
+    stage_status TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+3. **PostgreSQL Integration for Data Collection**:
+
+In your GitHub Actions templates, add steps to log metrics to PostgreSQL after each workflow run.
+
+```yaml
+- name: Log Metrics to PostgreSQL
+  run: |
+    psql -h ${{ secrets.PG_HOST }} -U ${{ secrets.PG_USER }} -d github_metrics -c "
+    INSERT INTO pipeline_metrics (repo_name, workflow_name, deployment_frequency, lead_time, change_failure_rate, restore_time, pipeline_duration, deployment_platform, stage_name, stage_status)
+    VALUES ('${{ github.repository }}', '${{ github.workflow }}', ${DEPLOYMENT_FREQUENCY}, ${LEAD_TIME}, ${CHANGE_FAILURE_RATE}, ${RESTORE_TIME}, ${PIPELINE_DURATION}, '${{ deployment_platform }}', '${{ stage_name }}', '${{ stage_status }}');
+    "
+```
+
+### 5. **API Integration to Fetch Data**
+
+You will use GitHub's REST and GraphQL APIs to fetch deployment, workflow, and metrics data.
+
+1. **REST API to Fetch Workflow Runs:**
+
+```bash
+curl -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  "https://api.github.com/repos/your-org/your-repo/actions/runs"
+```
+
+2. **GraphQL API to Fetch Detailed Workflow Data:**
+
+```graphql
+query {
+  repository(owner: "your-org", name: "your-repo") {
+    workflows(first: 10) {
+      nodes {
+        id
+        name
+        run {
+          id
+          status
+          conclusion
+        }
+      }
+    }
+  }
+}
+```
+
+This query allows you to pull detailed workflow status and metrics.
+
+### 6. **Monitoring Dashboard Configuration**
+
+Here, we'll use **Power BI** or **Grafana** for visualizing the data collected from the GitHub workflows.
+
+#### Power BI Setup:
+
+1. Connect Power BI to **PostgreSQL** by setting up the PostgreSQL connector:
+
+   * Go to **Home** > **Get Data** > **PostgreSQL Database**.
+   * Enter connection details (e.g., `localhost` for the host, `github_metrics` for the database name).
+   * Import the `pipeline_metrics` table into Power BI.
+2. **Build the Dashboard**:
+
+   * **DORA Metrics**: Use the `deployment_frequency`, `lead_time`, and `change_failure_rate` fields to create a report.
+   * **Deployment Trends**: Group by `deployment_platform` and display frequency over time.
+   * **Pipeline Duration**: Visualize the average pipeline time using the `pipeline_duration` field.
+
+#### Grafana Setup:
+
+1. **Install Grafana**:
+
+```bash
+# On Ubuntu:
+sudo apt-get install -y grafana
+sudo systemctl enable grafana-server
+sudo systemctl start grafana-server
+```
+
+2. **Connect Grafana to PostgreSQL**:
+
+   * Go to **Grafana UI** and configure **PostgreSQL** as a data source.
+   * Use the same connection details you used in Power BI.
+
+3. **Create Grafana Dashboards**:
+
+   * Import the **Pipeline Metrics** data from PostgreSQL into Grafana.
+   * Set up **Time Series** and **Bar** charts for DORA metrics and deployment trends.
+
+### Final POC Demo
+
+* **GitHub Action Template**: Defines your CI/CD steps.
+* **App Repo**: Demonstrates how the app repo uses the template.
+* **GitHub Runner**: Configured to execute workflows.
+* **PostgreSQL Database**: Collects and stores metrics.
+* **API Integration**: Fetches detailed workflow data.
+* **Monitoring Dashboard**: Displays DORA metrics and pipeline performance.
+
+This setup provides a working demonstration of the solution. You can scale it by adding more repositories and workflows while keeping the monitoring solution flexible and centralized.
