@@ -1,107 +1,120 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36 Edg/142.0.0.0" version="29.2.3">
-  <diagram id="branching-release-process" name="Branching + Release + ServiceNow Gate">
-    <mxGraphModel dx="1418" dy="786" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
-      <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="t1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=18;fontStyle=1" value="GitHub Branching Strategy + Tag-based Promotion (dev / preprod / prod) + ServiceNow Gate" vertex="1">
-          <mxGeometry height="30" width="1200" x="40" y="20" as="geometry" />
-        </mxCell>
-        <mxCell id="h_dev" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#F5F5F5;strokeColor=#D0D0D0;align=center;fontStyle=1" value="Developer" vertex="1">
-          <mxGeometry height="50" width="320" x="40" y="70" as="geometry" />
-        </mxCell>
-        <mxCell id="h_pr" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#F5F5F5;strokeColor=#D0D0D0;align=center;fontStyle=1" value="PR Governance (Rulesets / Checks)" vertex="1">
-          <mxGeometry height="50" width="360" x="380" y="70" as="geometry" />
-        </mxCell>
-        <mxCell id="h_cd" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#F5F5F5;strokeColor=#D0D0D0;align=center;fontStyle=1" value="CI/CD + Environments" vertex="1">
-          <mxGeometry height="50" width="600" x="760" y="70" as="geometry" />
-        </mxCell>
-        <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#E8F0FE;strokeColor=#6C8EBF" value="Create branch&#xa;feature/* or bugfix/*" vertex="1">
-          <mxGeometry height="70" width="280" x="60" y="150" as="geometry" />
-        </mxCell>
-        <mxCell id="n_hotfix" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#FFF4E5;strokeColor=#D79B00" value="Hotfix path (urgent prod fix)&#xa;Branch hotfix/* from last prod tag vX.Y.Z" vertex="1">
-          <mxGeometry height="90" width="280" x="60" y="240" as="geometry" />
-        </mxCell>
-        <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#E8F0FE;strokeColor=#6C8EBF" value="Open PR → main" vertex="1">
-          <mxGeometry height="60" width="280" x="60" y="350" as="geometry" />
-        </mxCell>
-        <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#EAF9F0;strokeColor=#3C8D5A" value="Required PR checks (examples)&#xa;- Build + unit tests + coverage&#xa;- Lint/format&#xa;- SAST/dep scan/secret scan&#xa;- Policy checks (CODEOWNERS paths)" vertex="1">
-          <mxGeometry height="140" width="300" x="410" y="150" as="geometry" />
-        </mxCell>
-        <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#EAF9F0;strokeColor=#3C8D5A" value="Approvals + CODEOWNERS&#xa;No direct pushes to main&#xa;No force-push / history protected" vertex="1">
-          <mxGeometry height="100" width="300" x="410" y="310" as="geometry" />
-        </mxCell>
-        <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#EAF9F0;strokeColor=#3C8D5A" value="Merge PR → main" vertex="1">
-          <mxGeometry height="60" width="300" x="410" y="430" as="geometry" />
-        </mxCell>
-        <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#F3E8FF;strokeColor=#9673A6" value="On push to main&#xa;Build + Test&#xa;Publish artifact (immutable digest)&#xa;&quot;Build once, deploy many&quot;" vertex="1">
-          <mxGeometry height="120" width="300" x="790" y="150" as="geometry" />
-        </mxCell>
-        <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#F3E8FF;strokeColor=#9673A6" value="Auto Deploy → DEV&#xa;GitHub Environment: dev&#xa;Allowed from: main" vertex="1">
-          <mxGeometry height="90" width="220" x="1110" y="150" as="geometry" />
-        </mxCell>
-        <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#F3E8FF;strokeColor=#9673A6" value="Create RC tag&#xa;vX.Y.Z-rc.N&#xa;(immutable tags via rulesets)" vertex="1">
-          <mxGeometry height="90" width="300" x="790" y="290" as="geometry" />
-        </mxCell>
-        <mxCell id="n9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#F3E8FF;strokeColor=#9673A6" value="Deploy → PREPROD&#xa;From tags: v*-rc.*&#xa;Use same artifact digest" vertex="1">
-          <mxGeometry height="110" width="220" x="1110" y="270" as="geometry" />
-        </mxCell>
-        <mxCell id="n10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#F3E8FF;strokeColor=#9673A6" value="Create Release tag&#xa;vX.Y.Z" vertex="1">
-          <mxGeometry height="70" width="300" x="790" y="410" as="geometry" />
-        </mxCell>
-        <mxCell id="n11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#FFE6E6;strokeColor=#B85450" value="Prod Gate&#xa;ServiceNow Change Request&#xa;- Create/Update CR&#xa;- Await CAB approval" vertex="1">
-          <mxGeometry height="100" width="220" x="1110" y="400" as="geometry" />
-        </mxCell>
-        <mxCell id="n12" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#F3E8FF;strokeColor=#9673A6" value="Deploy → PROD&#xa;From tags: v*.*.*&#xa;Approved in ServiceNow&#xa;Same artifact digest" vertex="1">
-          <mxGeometry height="110" width="220" x="1110" y="520" as="geometry" />
-        </mxCell>
-        <mxCell id="note1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=#FFFFFF;strokeColor=#D0D0D0;align=left" value="Traceability: Tag → Commit SHA → Workflow Run → Artifact Digest → Environment Deployment History" vertex="1">
-          <mxGeometry height="60" width="1290" x="40" y="660" as="geometry" />
-        </mxCell>
-        <mxCell id="e1" edge="1" parent="1" source="n1" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n2">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e_hotfix_to_pr" edge="1" parent="1" source="n_hotfix" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n2" value="or">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e2" edge="1" parent="1" source="n2" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n3">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e3" edge="1" parent="1" source="n3" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n4">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e4" edge="1" parent="1" source="n4" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n5">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e5" edge="1" parent="1" source="n5" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n6">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e6" edge="1" parent="1" source="n6" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n7">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e7" edge="1" parent="1" source="n7" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n8">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e8" edge="1" parent="1" source="n8" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n9">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e9" edge="1" parent="1" source="n9" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n10">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e10" edge="1" parent="1" source="n10" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n11">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e11" edge="1" parent="1" source="n11" style="endArrow=block;html=1;rounded=1;strokeWidth=2" target="n12" value="Approved">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e12" edge="1" parent="1" source="n11" style="endArrow=block;html=1;rounded=1;strokeWidth=2;dashed=1" target="n11" value="Pending">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="1350" y="410" as="sourcePoint" />
-            <mxPoint x="1350" y="450" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
-</mxfile>
+Here’s a **practical, “can-be-implemented-tomorrow” RACI** for **GitHub + GitHub Actions** with **dev / preprod / prod**, **tag-based promotion**, and **ServiceNow change control**.
+
+**Legend**: **R** = Responsible (does the work) · **A** = Accountable (owns outcome/decision) · **C** = Consulted (gives input) · **I** = Informed
+
+### Standard roles (use these across all teams)
+
+| Role | Meaning (in plain English)                                            |
+| ---- | --------------------------------------------------------------------- |
+| PO   | Product Owner / Business Owner                                        |
+| EM   | Engineering Manager (delivery + people + process ownership)           |
+| ARCH | Solution/Tech Architect (standards + architecture fitness)            |
+| TL   | Tech Lead / Service Owner (codebase & runtime ownership)              |
+| DEV  | Developer (implements changes)                                        |
+| QA   | QA / SDET (quality validation, automation)                            |
+| PLAT | Platform/DevOps team (CI/CD platform, runners, templates, guardrails) |
+| SEC  | AppSec/InfoSec (security controls, risk)                              |
+| REL  | Release Manager (release planning, coordination)                      |
+| CAB  | Change Manager / CAB approvers (change governance)                    |
+| OPS  | SRE/Operations (prod reliability, incident response, runbooks)        |
+
+---
+
+## 1) Governance & setup (org-wide standards + repo bootstrap)
+
+| Activity                                                                  | PO | EM    | ARCH  | TL    | DEV | QA | PLAT    | SEC | REL   | CAB     | OPS   |
+| ------------------------------------------------------------------------- | -- | ----- | ----- | ----- | --- | -- | ------- | --- | ----- | ------- | ----- |
+| Define org branching strategy + tag conventions                           | C  | **A** | **R** | C     | I   | I  | C       | C   | C     | I       | C     |
+| Create standard PR policy (approvals, required checks, merge method)      | I  | **A** | C     | C     | I   | C  | **R**   | C   | I     | I       | C     |
+| Create org rulesets (protect `main`, protect `v*`/`rc` tags)              | I  | **A** | C     | C     | I   | I  | **R**   | C   | I     | I       | C     |
+| Define environment model (`dev/preprod/prod`) + deploy-from rules         | I  | **A** | **R** | C     | I   | C  | C       | C   | C     | I       | C     |
+| Create reusable workflow templates (CI/CD “golden paths”)                 | I  | C     | C     | C     | I   | C  | **A/R** | C   | I     | I       | C     |
+| Runner strategy (hosted vs self-hosted), hardening, scaling               | I  | C     | C     | I     | I   | I  | **A/R** | C   | I     | I       | C     |
+| Secrets strategy (ownership, rotation, environment segregation)           | I  | C     | C     | **A** | I   | I  | R       | C   | I     | I       | **R** |
+| ServiceNow change process mapping (what requires CR, lead time, evidence) | C  | **A** | C     | C     | I   | I  | C       | C   | **R** | **A/R** | C     |
+| Define release policy (cadence, freeze windows, emergency path)           | C  | **A** | C     | C     | I   | C  | C       | C   | **R** | C       | C     |
+
+---
+
+## 2) Day-to-day development (branch → PR → merge → dev deploy)
+
+| Activity                                                               | PO | EM | ARCH | TL      | DEV     | QA    | PLAT  | SEC   | REL | CAB | OPS |
+| ---------------------------------------------------------------------- | -- | -- | ---- | ------- | ------- | ----- | ----- | ----- | --- | --- | --- |
+| Create feature/bugfix branch (`feature/*`, `bugfix/*`)                 | I  | I  | I    | C       | **A/R** | I     | I     | I     | I   | I   | I   |
+| Commit changes + unit tests updated                                    | I  | I  | I    | C       | **R**   | C     | I     | I     | I   | I   | I   |
+| Open PR to `main`                                                      | I  | I  | I    | C       | **R**   | I     | I     | I     | I   | I   | I   |
+| PR review (code/quality)                                               | I  | I  | C    | **A/R** | R       | C     | I     | C     | I   | I   | I   |
+| Security review for sensitive changes (auth, crypto, infra, pipelines) | I  | I  | C    | **A**   | R       | I     | C     | **R** | I   | I   | C   |
+| Resolve PR comments + update PR                                        | I  | I  | I    | C       | **R**   | C     | I     | C     | I   | I   | I   |
+| Approve PR (CODEOWNERS + required approvals)                           | I  | I  | C    | **A/R** | I       | C     | I     | C     | I   | I   | I   |
+| Merge PR to `main` (only after checks green)                           | I  | I  | I    | **A/R** | C       | I     | I     | I     | I   | I   | I   |
+| Maintain PR checks/workflows in app repo (as code evolves)             | I  | I  | I    | **A**   | **R**   | C     | C     | C     | I   | I   | I   |
+| Auto deploy to **dev** on merge (GitHub Actions)                       | I  | I  | I    | **A**   | I       | I     | **R** | I     | I   | I   | C   |
+| Verify dev deployment success (basic validation)                       | I  | I  | I    | **A**   | R       | **R** | I     | I     | I   | I   | C   |
+
+> Note: even though the workflow “executes the deploy,” accountability for dev deploy quality usually sits with the **TL** (service owner). Platform is responsible for the delivery mechanism.
+
+---
+
+## 3) Release promotion (RC tag → preprod → release tag → prod with ServiceNow)
+
+| Activity                                                               | PO      | EM | ARCH | TL      | DEV | QA    | PLAT  | SEC   | REL     | CAB     | OPS   |
+| ---------------------------------------------------------------------- | ------- | -- | ---- | ------- | --- | ----- | ----- | ----- | ------- | ------- | ----- |
+| Plan release scope (what features go in)                               | **A/C** | C  | C    | **R**   | C   | C     | I     | C     | **R**   | I       | C     |
+| Cut **RC tag** (`vX.Y.Z-rc.N`) from `main`                             | I       | I  | I    | C       | I   | I     | I     | I     | **A/R** | I       | I     |
+| Deploy to **preprod** from RC tag (automated)                          | I       | I  | I    | C       | I   | I     | **R** | I     | **A**   | I       | C     |
+| Execute preprod test cycle + sign-off                                  | I       | I  | C    | **A**   | C   | **R** | I     | C     | C       | I       | C     |
+| Performance testing (if applicable) in preprod                         | I       | I  | C    | **A**   | C   | **R** | C     | C     | I       | I       | C     |
+| DAST / pen-test window (risk-based)                                    | I       | I  | C    | **A**   | C   | C     | C     | **R** | I       | I       | C     |
+| Create ServiceNow Change Request for prod release                      | I       | I  | I    | C       | I   | I     | C     | C     | **R**   | **A**   | C     |
+| Attach evidence to CR (test results, rollback plan, impacted services) | I       | I  | C    | **A/R** | C   | R     | C     | C     | **R**   | C       | **R** |
+| Approve CR / CAB decision                                              | I       | I  | I    | I       | I   | I     | I     | C     | C       | **A/R** | C     |
+| Create **release tag** (`vX.Y.Z`) after approval readiness             | I       | I  | I    | C       | I   | I     | I     | I     | **A/R** | I       | I     |
+| Deploy to **prod** from release tag (gated by env + ServiceNow)        | I       | I  | I    | C       | I   | I     | **R** | I     | **A**   | C       | **R** |
+| Post-prod smoke verification                                           | I       | I  | I    | **A**   | C   | **R** | I     | I     | C       | I       | **R** |
+| Release communications (status, notes, stakeholders)                   | **C**   | C  | I    | C       | I   | I     | I     | I     | **A/R** | I       | C     |
+
+---
+
+## 4) Testing strategy (what tests happen where, and who owns them)
+
+| Test type                                    | PR (pre-merge) | DEV             | PREPROD            | PROD                | RACI ownership                       |
+| -------------------------------------------- | -------------- | --------------- | ------------------ | ------------------- | ------------------------------------ |
+| Lint/format/static checks                    | ✅ Required     | Optional        | Optional           | No                  | **DEV R**, **TL A**, PLAT C          |
+| Unit tests + coverage                        | ✅ Required     | ✅               | Optional           | No                  | **DEV R**, **TL A**, QA C            |
+| SAST / dependency scan / secret scan         | ✅ Required     | ✅               | ✅ (optional rerun) | No                  | **PLAT R**, **SEC A** (policy), TL C |
+| Integration tests (service-to-service)       | Optional       | ✅ (recommended) | ✅ Required         | No                  | **QA R**, **TL A**, DEV C            |
+| End-to-end (E2E) tests                       | Optional       | Optional        | ✅ Required         | Optional smoke only | **QA R**, **TL A**                   |
+| Performance / soak tests                     | No             | Optional        | ✅ Risk-based       | No                  | **QA R**, **TL A**, OPS C            |
+| DAST                                         | No             | Optional        | ✅ Risk-based       | No                  | **SEC R**, **TL A**, QA C            |
+| Smoke tests                                  | No             | Optional        | ✅                  | ✅ Required          | **OPS R**, **TL A**, QA C            |
+| Observability validation (dashboards/alerts) | No             | ✅ minimal       | ✅ required         | ✅ required          | **OPS R**, **OPS A**, PLAT C         |
+
+---
+
+## 5) Operations, support, continuous improvement
+
+| Activity                                         | PO | EM    | ARCH | TL    | DEV   | QA | PLAT    | SEC   | REL | CAB | OPS   |
+| ------------------------------------------------ | -- | ----- | ---- | ----- | ----- | -- | ------- | ----- | --- | --- | ----- |
+| Own service reliability SLOs/SLIs                | I  | C     | C    | **A** | I     | I  | C       | I     | I   | I   | **R** |
+| On-call & incident response                      | I  | C     | I    | **A** | C     | I  | C       | I     | I   | I   | **R** |
+| Runbooks (create + keep updated)                 | I  | I     | C    | **A** | C     | I  | C       | C     | I   | I   | **R** |
+| Monitoring/alerts setup & tuning                 | I  | I     | I    | **A** | I     | I  | C       | I     | I   | I   | **R** |
+| Release rollback execution (when needed)         | I  | I     | I    | **A** | C     | I  | C       | I     | C   | I   | **R** |
+| Patch/security remediation SLAs                  | I  | C     | I    | **A** | **R** | I  | C       | **R** | I   | I   | C     |
+| Maintain reusable workflows/templates            | I  | I     | I    | C     | I     | I  | **A/R** | C     | I   | I   | C     |
+| Maintain app repo workflows (app-specific)       | I  | I     | I    | **A** | **R** | C  | C       | C     | I   | I   | I     |
+| Runner operations (capacity, updates, hardening) | I  | I     | I    | I     | I     | I  | **A/R** | C     | I   | I   | C     |
+| Post-incident review (RCA) + action tracking     | I  | **A** | C    | **R** | C     | C  | C       | C     | I   | I   | **R** |
+
+---
+
+### Two policy notes that make this actually work at scale
+
+1. **Only one “A” per row** (you’ll notice TL/REL/OPS/CAB rotate accountability depending on stage). This prevents the classic “everyone owns it so nobody owns it” failure mode.
+2. **Platform owns the *paved road*, app teams own the *car***: PLAT provides runners/templates/policies; TL is accountable for what ships; OPS is accountable for production health; REL/CAB govern prod entry.
+
+If you want, I can also output this as:
+
+* a **Confluence-ready RACI table** (same content, better formatting),
+* or a **CSV** you can import into Excel/PowerPoint.
