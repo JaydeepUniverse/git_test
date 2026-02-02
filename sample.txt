@@ -1,6 +1,1 @@
-Test
-Line 2
-Line 3
-Line 4
-Line 5
-Line 6
+Act as solution architect and technical experts for the ansible technology. Design the solution for ansible playbooks, roles and all the code related to ansible, how can those code be scanned and secured. For ex. sonarqube can be used for java to do code quality analysis, similarly which tool/s can be used for ansible. Another ex. Checkmarx or Trivy can be used for SAST scanning, I found from checkmarx official document that it supports Ansible scanning, integrating this tool what kind of scanning report can be expected. Research as per best industry standards and find the best strategy for scanning and reporting. Also provide automated workflow in Github actions for these scanning and reporting. Which other stages can be integrated in github actions workflow, for ex. gitleaks can be used to detect the plain text passwords and tokens, simiarly design the best possible automation workflow with all possible integrations. I also need to document this, so create HLD for this automation workflow automation , I should be able to edit also this HLD in draw.io diagram so generate in that specific format.
