@@ -1,294 +1,348 @@
-Below is a **security-hardening process for GitHub Actions self-hosted runner infrastructure**, organized **infra-wise** (VM on Azure/AWS vs Kubernetes/AKS/EKS). I’m treating this like an architected control set: **threat model → build/provision → runtime controls → maintenance/patching → monitoring/response**.
+Alright, solution-architect hat on. Let’s treat Ansible as first-class code, not “just YAML with vibes”. The industry has learned this the hard way. Below is a battle-tested, defense-in-depth scanning strategy for Ansible playbooks, roles, and collections, plus a GitHub Actions pipeline and an HLD you can edit directly in draw.io.
+
+I’ll keep this grounded in real DevSecOps practice, not vendor fairy tales.
 
-GitHub’s core warning is the big one: **self-hosted runners do not provide the same “clean ephemeral VM per job” guarantee as GitHub-hosted runners**, so you must assume a runner can be **persistently compromised** if it runs untrusted code. ([GitHub Docs][1])
+⸻
+
+1. Threat model for Ansible code (why scanning matters)
+
+Ansible code can fail you in four distinct ways:
+	1.	Quality & correctness
+	•	Idempotency violations
+	•	Deprecated modules
+	•	Bad practices (shell instead of native modules)
+	2.	Security misconfiguration
+	•	Insecure file permissions
+	•	Weak crypto, unsafe sudo
+	•	OS hardening violations
+	3.	Secrets exposure
+	•	Plaintext passwords
+	•	API tokens
+	•	Vault keys accidentally committed
+	4.	Supply-chain risk
+	•	Malicious roles from Galaxy
+	•	Insecure base images when using Ansible in containers
 
----
+No single tool covers all four. So we layer them.
 
-## 0) Baseline threat model (applies everywhere)
+⸻
 
-### Primary risks to design against
+2. Tooling landscape for Ansible (what maps to Sonar / SAST)
 
-* **Untrusted code execution** (PRs, forks, third-party actions) → runner compromise → lateral movement into your cloud/VNet/VPC.
-* **Credential theft** (GitHub tokens, cloud creds, SSH keys, kubeconfigs).
-* **Cross-job contamination** (job A leaves malware/artifacts for job B).
-* **Supply chain** (actions you run, containers you pull, dependencies).
-* **Privilege escalation** (runner has admin/sudo, hostPath mounts, overly broad IAM/RBAC).
+2.1 Code quality & best practices (Sonar-equivalent)
 
-### Non-negotiable GitHub controls
+ansible-lint (mandatory)
+	•	De-facto standard
+	•	Backed by Red Hat
+	•	Rules for:
+	•	Idempotency
+	•	Module usage
+	•	Variable naming
+	•	Deprecated syntax
+	•	Output formats: text, JSON, SARIF
 
-1. **Never use self-hosted runners for public repos / untrusted PRs.** Isolate by trust level using runner groups. ([wiz.io][2])
-2. Prefer **ephemeral / just-in-time runners** (one job then destroy). GitHub recommends ephemeral autoscaling; persistent autoscaling is discouraged. ([GitHub Docs][3])
-3. **Least privilege for `GITHUB_TOKEN`** (set default permissions to read; elevate only per job).
-4. **Pin actions** (commit SHA, not mutable tags) and avoid unreviewed third-party actions.
-5. Consider runner hardening instrumentation (network/file/process monitoring) (e.g., “Harden Runner” style tooling) for visibility. ([GitHub][4])
+Think of it as SonarQube + PMD for Ansible.
 
----
+⸻
 
-## 1) VM-based runners (Azure VM / AWS EC2)
+2.2 SAST for Ansible (Checkmarx, KICS, Semgrep)
 
-### A. Provisioning & image strategy (golden image + immutable)
+✅ Checkmarx SAST (CxOne / CxSAST)
+Checkmarx officially supports Ansible IaC scanning.
 
-**Goal:** treat runner VMs like cattle, not pets.
+What it actually detects:
+	•	Hardcoded secrets
+	•	Insecure privilege escalation
+	•	Weak file permissions
+	•	Unsafe command execution
+	•	Misconfigured services
 
-* Build a **hardened golden image** (Packer) with:
+Expected report includes:
+	•	Vulnerability category (CWE-mapped)
+	•	Severity (Critical → Low)
+	•	File + line number
+	•	Policy compliance status
+	•	Risk score per repo
 
-  * runner binaries, required toolchains, baseline security agents
-  * locked-down OS config (CIS-like)
-  * no long-lived secrets baked in
-* Deploy runners via **autoscaling** and **terminate after 1 job** (ephemeral). This is repeatedly recommended as it reduces persistent compromise and job contamination. ([GitHub Docs][3])
+Best used for:
+	•	Enterprise governance
+	•	Audit-friendly reports
+	•	Policy enforcement
 
-### B. Identity & access (cloud IAM)
+⸻
 
-**Goal:** the runner should have *exactly* the permissions to do CI/CD and nothing else.
+✅ KICS (by Checkmarx, open source)
+Lightweight alternative if full Checkmarx isn’t licensed.
 
-* Use **short-lived credentials** (OIDC federation) instead of static keys where possible.
-* Scope IAM to:
+Supports:
+	•	Ansible
+	•	Kubernetes
+	•	Terraform
+	•	Dockerfiles
 
-  * specific resources (RG/Subscription, specific buckets, specific registries)
-  * least privilege actions (no `*` permissions)
-* In Azure, follow identity best practices (MFA, conditional access, strong separation of duties). ([Microsoft Learn][5])
+Outputs:
+	•	JSON
+	•	SARIF (GitHub Security tab compatible)
+	•	HTML
 
-### C. Network controls (blast-radius shaping)
+⸻
 
-* Put runners in a **dedicated subnet** with **egress control**:
+✅ Semgrep (Ansible rules)
+Good for:
+	•	Custom org-specific rules
+	•	Fast feedback
+	•	Developer-centric scanning
 
-  * allow outbound only to what’s needed (GitHub endpoints, artifact repos, registries, package mirrors)
-* **No inbound** to runners (ideally). Use outbound-only connectivity; if SSH is needed, restrict by source IP + JIT access + MFA/bastion.
-* Prevent lateral movement:
+Less good for:
+	•	Compliance reports
+	•	Executive dashboards
 
-  * block access from runner subnet to sensitive private endpoints unless required
-  * separate “build” runners from “deploy” runners (different subnets, different IAM)
+⸻
 
-### D. Host hardening (OS)
+2.3 Secrets detection
 
-* Run runner service as **non-root** where feasible.
-* Minimize installed packages (reduce attack surface).
-* Enforce:
+gitleaks (non-negotiable)
+	•	Detects plaintext secrets
+	•	Fast
+	•	Pre-commit and CI friendly
 
-  * disk encryption
-  * host firewall
-  * audit logging
-  * kernel hardening defaults where supported
-* Defender/Vuln mgmt:
+Optional but useful:
+	•	TruffleHog (deep history scan)
+	•	GitHub Secret Scanning (native)
 
-  * Use cloud posture/vulnerability recommendations (e.g., Microsoft Defender for Cloud compute recommendations). ([Microsoft Learn][6])
+⸻
 
-### E. Secrets management (VM)
+2.4 Dependency & supply chain
 
-* **Never store secrets on disk** in the runner (especially SSH keys).
-* Prefer:
+ansible-galaxy dependency scanning
+	•	Lock versions in requirements.yml
+	•	Verify checksums
 
-  * GitHub OIDC → cloud secret store (Azure Key Vault / AWS Secrets Manager) → fetch at runtime
-  * short TTL, rotate frequently
-* If SSH to targets is required:
+Trivy
+	•	Scan:
+	•	Container images that run Ansible
+	•	SBOM of build environment
+	•	Bonus: IaC scanning (basic Ansible rules)
+
+⸻
+
+2.5 Runtime / execution safety (advanced but powerful)
+	•	--check mode in CI (dry-run)
+	•	Molecule tests for roles
+	•	Testinfra for system assertions
+
+This catches bugs scanners never will.
+
+⸻
+
+3. Recommended best-practice scanning stack (final answer)
+
+Layer	Tool
+Code quality	ansible-lint
+SAST / IaC security	Checkmarx or KICS
+Secrets	gitleaks
+Supply chain	Trivy
+Testing	Molecule + Ansible check mode
+Reporting	SARIF → GitHub Security tab
+
+This mirrors what mature DevSecOps orgs actually deploy.
 
-  * best: **ephemeral SSH certificates** (CA-signed short-lived certs) instead of static private keys
-  * if you must use keys: keep them in a secrets manager and write them to tmpfs for job duration only
+⸻
+
+4. GitHub Actions – end-to-end automation workflow
 
-### F. Runner software updates & patching
+4.1 Pipeline stages (logical)
+	1.	Checkout
+	2.	Secrets scanning
+	3.	Lint & quality
+	4.	SAST (Ansible)
+	5.	Dependency & image scan
+	6.	Testing
+	7.	Report publishing
+	8.	Policy gate
+
+⸻
 
-* GitHub runners can auto-update the runner app, but you can disable and manage it yourself (common in containerized/controlled environments). ([GitHub Docs][7])
-  **Hardening approach:**
-* Prefer **immutable updates**:
+4.2 Sample GitHub Actions workflow (production-grade)
 
-  * new golden image → roll out new runners → drain old runners → terminate
-* OS patching:
+name: Ansible DevSecOps Pipeline
 
-  * schedule maintenance windows + staged rings (dev → preprod → prod)
-  * in Azure, align with VM security baseline guidance and patch management processes. ([Microsoft Learn][8])
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  ansible-security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible tools
+        run: |
+          pip install ansible ansible-lint molecule docker
 
-### G. Logging/monitoring/IR
+      # 1. Secrets scanning
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          fail: true
+
+      # 2. Ansible linting
+      - name: Ansible lint
+        run: |
+          ansible-lint -f sarif -o ansible-lint.sarif .
+
+      - name: Upload ansible-lint report
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ansible-lint.sarif
+
+      # 3. SAST – KICS (Checkmarx OSS)
+      - name: Run KICS scan
+        uses: checkmarx/kics-github-action@v2
+        with:
+          path: .
+          output_formats: sarif
+          output_path: kics-results
+
+      - name: Upload KICS report
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: kics-results/results.sarif
+
+      # 4. Trivy supply-chain scan
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.20.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: 1
+
+      # 5. Ansible dry-run validation
+      - name: Ansible check mode
+        run: |
+          ansible-playbook site.yml --check --diff
+
+      # 6. Molecule tests (roles)
+      - name: Molecule test
+        run: |
+          molecule test
+
+This pipeline:
+	•	Fails fast on secrets
+	•	Publishes security findings into GitHub Security
+	•	Enforces policy gates before merge
 
-* Collect:
+⸻
+
+5. Reporting strategy (what stakeholders actually see)
 
-  * runner service logs
-  * OS auth logs
-  * process/network telemetry (EDR)
-* Monitor runner health and job anomalies (GitHub provides runner monitoring/troubleshooting guidance). ([GitHub Docs][9])
-* Incident response stance:
+Developers
+	•	Inline PR annotations
+	•	GitHub Security tab (SARIF)
 
-  * **assume compromise = rebuild** (terminate runner, rotate secrets, invalidate tokens, review workflow changes)
+Security team
+	•	Checkmarx dashboards
+	•	CWE-mapped vulnerabilities
+	•	Trend analysis
 
----
+Auditors
+	•	Immutable scan artifacts
+	•	CI logs
+	•	Policy enforcement evidence
 
-## 2) Kubernetes-based runners (AKS/EKS/GKE; typical with actions-runner-controller)
+⸻
 
-### A. Architecture pattern: controller + ephemeral runner pods
+6. High-Level Design (HLD)
 
-* Use a runner controller/operator to scale runner pods.
-* Ensure **each job gets a fresh pod** and pods are destroyed after completion (ephemeral). This aligns with GitHub’s guidance on ephemeral runners. ([GitHub Docs][3])
+6.1 Architecture overview (logical)
 
-### B. Namespace & isolation model
+Actors:
+	•	Developer
+	•	GitHub
+	•	GitHub Actions
+	•	Scanning tools
+	•	Reporting systems
 
-* Dedicated **namespace per trust zone** (e.g., `runners-internal`, `runners-release`).
-* Separate clusters or node pools for high-trust runners (prod deployment runners).
-* Use **taints/tolerations** so runners only land on hardened nodes.
+Flow:
+	1.	Developer pushes code
+	2.	GitHub Actions triggers pipeline
+	3.	Parallel security & quality scans
+	4.	Results aggregated
+	5.	Policy decision
+	6.	Feedback to PR
 
-### C. Pod security hardening (the big rocks)
+⸻
 
-Use strong **Pod/Container security contexts**:
+7. draw.io editable HLD (diagrams.net XML)
 
-* `runAsNonRoot: true`
-* drop Linux capabilities
-* `readOnlyRootFilesystem: true` (where feasible)
-* disallow privileged containers
-  Kubernetes security context is the standard control point. ([Kubernetes][10])
+You can import this directly into draw.io
+(File → Import From → Device)
 
-Also:
+<mxfile host="app.diagrams.net">
+  <diagram name="Ansible DevSecOps HLD">
+    <mxGraphModel dx="1220" dy="720" grid="1" gridSize="10">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
 
-* **No hostPath mounts** unless absolutely required.
-* Avoid Docker-in-Docker privileged patterns; prefer:
+        <mxCell id="dev" value="Developer" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="140" width="120" height="60" as="geometry"/>
+        </mxCell>
 
-  * kaniko/buildkit rootless where possible
-  * dedicated build service if needed
+        <mxCell id="github" value="GitHub Repository" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="140" width="160" height="60" as="geometry"/>
+        </mxCell>
 
-### D. RBAC (least privilege)
+        <mxCell id="actions" value="GitHub Actions Pipeline" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;" vertex="1" parent="1">
+          <mxGeometry x="380" y="100" width="220" height="140" as="geometry"/>
+        </mxCell>
 
-* Runner controller SA (service account) gets minimal permissions to create/manage runner pods and nothing else.
-* Runner pods themselves should not have broad API access.
-  Kubernetes has explicit RBAC good-practice guidance (design to avoid privilege escalation). ([Kubernetes][11])
+        <mxCell id="lint" value="ansible-lint" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="640" y="40" width="160" height="50" as="geometry"/>
+        </mxCell>
 
-### E. Network Policies (contain the runner)
+        <mxCell id="sast" value="Checkmarx / KICS" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="640" y="110" width="160" height="50" as="geometry"/>
+        </mxCell>
 
-* Default deny ingress/egress for runner namespace.
-* Allow egress only to:
+        <mxCell id="secrets" value="Gitleaks" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="640" y="180" width="160" height="50" as="geometry"/>
+        </mxCell>
 
-  * GitHub
-  * container registry
-  * artifact repo
-  * required cloud APIs
-* Block access to Kubernetes API from runner pods unless necessary.
+        <mxCell id="report" value="GitHub Security & Reports" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;" vertex="1" parent="1">
+          <mxGeometry x="840" y="120" width="220" height="80" as="geometry"/>
+        </mxCell>
 
-### F. Images: minimal + signed + scanned
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
 
-* Use **minimal base images** (reduce CVEs + tools attackers love).
-* Enforce:
+You can freely:
+	•	Re-layout
+	•	Add swimlanes
+	•	Annotate trust boundaries
 
-  * pull from trusted registries only
-  * image signing/verification
-  * vulnerability scanning gates
-* Don’t bake secrets into images.
+⸻
 
-### G. PV/PVC & storage
+8. Final architectural takeaway
 
-* Prefer **ephemeral storage** (`emptyDir`) for workspaces.
-* If PVC is unavoidable (caching):
+Treat Ansible as software, not scripts.
+The winning strategy is layered scanning + unified reporting + CI enforcement.
 
-  * separate caches per repo/trust level to avoid cross-contamination
-  * encrypt at rest
-  * restrict access via namespace + RBAC + storage class policies
-* Avoid sharing PVCs between unrelated repos.
+If you want next steps, we can:
+	•	Add DORA-style security metrics
+	•	Align with NIST / ISO 27001
+	•	Extend this into self-hosted runners & hardened execution
 
-### H. Node security (AKS/EKS)
-
-* Separate node pools for runners:
-
-  * hardened OS image
-  * restricted SSH access (or none)
-  * disk encryption
-  * auto-upgrades and patching cadence aligned with cluster upgrades
-* Use managed cluster security baselines and continuously evaluate posture (CSPM).
-
-### I. Secrets in Kubernetes
-
-* Avoid raw Kubernetes Secrets for high-value credentials unless you have envelope encryption + tight RBAC.
-* Prefer external secret stores:
-
-  * **Azure Key Vault / AWS Secrets Manager** mounted via CSI driver
-  * short-lived tokens via OIDC where possible
-
-### J. Upgrades & maintenance
-
-* Treat controller + runner images like software supply chain:
-
-  * pin versions
-  * validate in lower env
-  * rollout with canaries
-* Cluster upgrades:
-
-  * runbooks for AKS/EKS version upgrades
-  * ensure Pod security and RBAC policies remain enforced post-upgrade
-
----
-
-## 3) “Infra governance” controls (applies to both VM & K8s)
-
-### A. Runner segmentation (by trust + purpose)
-
-Create explicit tiers:
-
-* **Tier 0 (untrusted)**: ideally *no* self-hosted runners; use GitHub-hosted only.
-* **Tier 1 (internal CI)**: build/test only; no prod network access.
-* **Tier 2 (deployment)**: restricted to deployment workflows; tighter IAM; separate infra.
-
-This is a direct response to the “self-hosted runner can be persistently compromised” reality. ([GitHub Docs][1])
-
-### B. Policy as code
-
-* Enforce workflow policies:
-
-  * required reviewers for workflow changes
-  * restrict who can use which runner groups
-  * enforce action pinning, token permissions, forbidden patterns (`pull_request_target` misuse, etc.)
-* Infra policies:
-
-  * Terraform with OPA/Conftest checks
-  * guardrails for network/IAM/RBAC
-
-### C. Supply chain controls
-
-* Dependency provenance, SBOMs, signed artifacts.
-* Artifact repositories with immutability and retention policies.
-
-### D. Observability + detections
-
-* Centralize logs:
-
-  * GitHub audit logs + Actions logs
-  * cloud control plane logs
-  * cluster audit logs (K8s)
-* Detect:
-
-  * unusual outbound traffic from runners
-  * credential access spikes
-  * workflow modifications in protected branches
-
----
-
-## 4) Practical “minimum hardening checklist” (per infra)
-
-### VM (Azure/AWS) minimum
-
-* Ephemeral autoscaled runners (destroy after job) ([GitHub Docs][3])
-* Dedicated subnet, egress restricted
-* No inbound; use bastion/JIT if needed
-* Least-privilege IAM + short-lived creds
-* No secrets on disk; fetch at runtime from secret manager
-* Immutable patching via golden image rollout
-* Central logs + EDR
-
-### AKS/EKS minimum
-
-* Ephemeral runner pods (one job per pod) ([GitHub Docs][3])
-* SecurityContext hardening (non-root, drop caps, RO filesystem) ([Kubernetes][10])
-* NetworkPolicies default deny
-* Tight RBAC (controller minimal; pods minimal) ([Kubernetes][11])
-* Minimal/scanned/signed images
-* Prefer emptyDir; isolate caches; encrypt PVC
-* External secret store integration
-
----
-
-If you want to turn this into an **organization-standard** deliverable, the next step is usually: define 2–3 **runner tiers**, then for each tier specify **allowed repos**, **runner group**, **network reach**, **IAM/RBAC**, **secrets model**, **patch cadence**, and **monitoring/alerting**. That becomes your “runner platform contract” (and stops random teams from spinning up runner snowflakes that become haunted).
-
-[1]: https://docs.github.com/en/actions/reference/security/secure-use?utm_source=chatgpt.com "Secure use reference - GitHub Docs"
-[2]: https://www.wiz.io/blog/github-actions-security-guide?utm_source=chatgpt.com "Hardening GitHub Actions: Lessons from Recent Attacks"
-[3]: https://docs.github.com/en/actions/reference/runners/self-hosted-runners?utm_source=chatgpt.com "Self-hosted runners reference"
-[4]: https://github.com/marketplace/actions/harden-runner?utm_source=chatgpt.com "Harden-Runner · Actions · GitHub Marketplace"
-[5]: https://learn.microsoft.com/en-us/azure/security/fundamentals/identity-management-best-practices?utm_source=chatgpt.com "Azure identity & access security best practices"
-[6]: https://learn.microsoft.com/en-us/azure/defender-for-cloud/recommendations-reference-compute?utm_source=chatgpt.com "Reference table for all compute security recommendations ..."
-[7]: https://docs.github.com/actions/hosting-your-own-runners?utm_source=chatgpt.com "Self-hosted runners"
-[8]: https://learn.microsoft.com/en-us/security/benchmark/azure/baselines/virtual-machines-linux-virtual-machines-security-baseline?utm_source=chatgpt.com "Azure security baseline for Virtual Machines - Linux ..."
-[9]: https://docs.github.com/actions/how-tos/managing-self-hosted-runners/monitoring-and-troubleshooting-self-hosted-runners?utm_source=chatgpt.com "Monitoring and troubleshooting self-hosted runners"
-[10]: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/?utm_source=chatgpt.com "Configure a Security Context for a Pod or Container"
-[11]: https://kubernetes.io/docs/concepts/security/rbac-good-practices/?utm_source=chatgpt.com "Role Based Access Control Good Practices"
+The universe is chaotic; your automation shouldn’t be.
